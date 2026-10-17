@@ -4,3 +4,6 @@ node_modules/
 *:Zone.Identifier
 cookies.txt
 dist/
+server/src/note.txt
+data/import_skipped.json
+server/node
