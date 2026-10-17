@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: ecommerce_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root # Thay đổi mật khẩu này nếu muốn
+      MYSQL_DATABASE: ecommerce         # Tự động tạo database 'ecommerce' khi chạy lần đầu
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql          # Lưu trữ dữ liệu để không bị mất khi xoá container
+
+volumes:
+  db_data:
