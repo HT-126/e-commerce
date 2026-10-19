@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { ProductDetailSkeleton } from "../components/Skeleton.jsx";
+import { useToast } from "../context/useToast.js";
+import { useCart } from "../context/useCart.js";
+import { useFetch } from "../hooks/useFetch.js";
 import ImageGallery from "../components/ImageGallery.jsx";
 import VariantPicker from "../components/VariantPicker.jsx";
 import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import { getProduct, addToCart } from "../api.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth.js";
 import ReviewsSection from "../components/ReviewsSection.jsx";
 
 export default function ProductDetailPage() {
@@ -11,44 +15,51 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [adding, setAdding] = useState(false);
-  const [message, setMessage] = useState(null); // { ok: true/false, text }
+  const toast = useToast();
+  const { refreshCart } = useCart();
 
   const { handle } = useParams();
-  const [product, setProduct] = useState(null);
-  const [variant, setVariant] = useState(null); // the chosen color + size
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { data: fetched, error: fetchError, loading } = useFetch(
+    () => getProduct(handle),
+    handle,
+  );
+  const error = fetchError?.message ?? "";
 
-  useEffect(() => {
-    let ignore = false;
-    setLoading(true);
-    setError("");
-    setProduct(null);
-    getProduct(handle)
-      .then((p) => {
-        if (ignore) return;
-        setProduct(p);
-        // Start on the first variant in stock (the first one if all are sold out)
-        setVariant(p.variants.find((v) => v.in_stock) ?? p.variants[0]);
-      })
-      .catch((e) => !ignore && setError(e.message))
-      .finally(() => !ignore && setLoading(false));
-    return () => {
-      ignore = true;
-    };
-  }, [handle]);
+  // The chosen color + size, stored as an id with the handle it belongs to,
+  // so a choice made on another product is ignored.
+  const [choice, setChoice] = useState({ handle: null, id: null });
+  // New rating numbers from the review form, with the handle they belong to
+  const [rated, setRated] = useState({ handle: null, rating: null, ratingCount: 0 });
 
-  if (loading)
-    return (
-      <main className="mx-auto max-w-6xl p-4">
-        <p>Loading...</p>
-      </main>
-    );
+  const product =
+    fetched && rated.handle === handle
+      ? { ...fetched, rating: rated.rating, rating_count: rated.ratingCount }
+      : fetched;
+  // Start on the first variant in stock (the first one if all are sold out)
+  const variant = product
+    ? (product.variants.find((v) => choice.handle === handle && v.id === choice.id) ??
+      product.variants.find((v) => v.in_stock) ??
+      product.variants[0])
+    : undefined;
+
+  if (loading) return <ProductDetailSkeleton />;
 
   if (error) {
     return (
       <main className="mx-auto max-w-6xl p-4">
         <p className="mb-2 text-sm text-red-700">{error}</p>
+        <Link to="/" className="text-sm underline">
+          Back to products
+        </Link>
+      </main>
+    );
+  }
+
+  // A product with no variants cannot be bought (and has no price to show)
+  if (!product || !variant) {
+    return (
+      <main className="mx-auto max-w-6xl p-4">
+        <p className="mb-2 text-sm">This product is not available.</p>
         <Link to="/" className="text-sm underline">
           Back to products
         </Link>
@@ -71,24 +82,28 @@ export default function ProductDetailPage() {
       return;
     }
     setAdding(true);
-    setMessage(null);
     try {
-      await addToCart(variant.id, 1);
-      setMessage({ ok: true, text: "Added to cart" });
+      const res = await addToCart(variant.id, 1);
+      toast(
+        res.capped
+          ? `Cart limit reached: you have ${res.quantity} of this item`
+          : "Added to cart",
+      );
+      refreshCart(); // update the number on the cart icon
     } catch (err) {
       if (err.status === 401) {
         // The 1-hour token expired: send the user to log in again
         navigate("/login", { state: { from: location.pathname } });
         return;
       }
-      setMessage({ ok: false, text: err.message }); // for example "Sold out"
+      toast(err.message, "error"); // for example "Sold out"
     } finally {
       setAdding(false);
     }
   }
   // The review section tells us the new numbers (they come in the POST response)
   function handleRated(rating, ratingCount) {
-    setProduct((p) => ({ ...p, rating, rating_count: ratingCount }));
+    setRated({ handle, rating, ratingCount });
   }
 
   return (
@@ -128,14 +143,14 @@ export default function ProductDetailPage() {
           <VariantPicker
             variants={product.variants}
             selected={variant}
-            onSelect={setVariant}
+            onSelect={(v) => setChoice({ handle, id: v.id })}
           />
 
           <button
             type="button"
             onClick={handleAdd}
             disabled={!variant.in_stock || adding}
-            className="w-full rounded-md bg-gray-900 py-3 font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto sm:px-10"
+            className="w-full rounded-md bg-accent py-3 font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-gray-300 sm:w-auto sm:px-10"
           >
             {!variant.in_stock
               ? "Sold out"
@@ -143,21 +158,12 @@ export default function ProductDetailPage() {
                 ? "Adding..."
                 : "Add to cart"}
           </button>
-          {message && (
-            <p
-              role="status"
-              className={
-                message.ok ? "text-sm text-green-700" : "text-sm text-red-700"
-              }
-            >
-              {message.text}
-            </p>
-          )}
 
           <p className="leading-relaxed text-gray-700">{product.description}</p>
         </div>
       </div>
-      <ReviewsSection handle={handle} onRated={handleRated} />
+      {/* key: a new product starts with a fresh review list and form */}
+      <ReviewsSection key={handle} handle={handle} onRated={handleRated} />
     </main>
   );
 }

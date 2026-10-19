@@ -1,17 +1,55 @@
-version: '3.8'
-
 services:
   mysql-db:
     image: mysql:8.0
     container_name: ecommerce_mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root # Thay đổi mật khẩu này nếu muốn
+      # One password for MySQL and the API. Default "root"; to change it for a NEW
+      # database, put MYSQL_ROOT_PASSWORD=... in a .env file next to this file.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ecommerce         # Tự động tạo database 'ecommerce' khi chạy lần đầu
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - db_data:/var/lib/mysql          # Lưu trữ dữ liệu để không bị mất khi xoá container
+      # Runs only on an EMPTY data volume (first start); existing data is never touched
+      - ./data/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      # MYSQL_PWD keeps the password off the command line
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./server
+    container_name: ecommerce_api
+    restart: unless-stopped
+    env_file: ./server/.env             # JWT_SECRET etc.
+    environment:
+      DB_HOST: mysql-db                 # service name, not 127.0.0.1, inside Docker
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      DB_NAME: ecommerce
+      PORT: 3000
+      CLIENT_ORIGIN: http://localhost:5174
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: http://localhost:3000
+    container_name: ecommerce_client
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - api
 
 volumes:
   db_data:

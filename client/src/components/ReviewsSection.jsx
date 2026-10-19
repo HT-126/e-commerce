@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getReviews, createReview } from "../api.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth.js";
 import Stars from "./Stars.jsx";
 
 export default function ReviewsSection({ handle, onRated }) {
@@ -19,13 +19,10 @@ export default function ReviewsSection({ handle, onRated }) {
   const [formError, setFormError] = useState("");
   const [thanks, setThanks] = useState(false);
 
-  // Load page 1 when the product changes (same "ignore" guard as before)
+  // Load page 1. The parent gives this component key={handle}, so a new product mounts
+  // it again with fresh state (no manual reset needed here).
   useEffect(() => {
     let ignore = false;
-    setData(null);
-    setError("");
-    setThanks(false);
-    setRating(0);
     getReviews(handle, 1)
       .then((d) => !ignore && setData(d))
       .catch((e) => !ignore && setError(e.message));
@@ -105,12 +102,12 @@ export default function ReviewsSection({ handle, onRated }) {
             rows={3}
             maxLength={1000} // same limit as the server
             placeholder="Write a comment (optional)"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none"
           />
           {formError && <p role="alert" className="text-sm text-red-700">{formError}</p>}
           <button
             disabled={submitting}
-            className="rounded-md bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:bg-gray-400"
+            className="rounded-md bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:bg-gray-400"
           >
             {submitting ? "Sending..." : "Submit review"}
           </button>

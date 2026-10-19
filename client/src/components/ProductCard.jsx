@@ -17,7 +17,7 @@ export default function ProductCard({ product }) {
           alt={product.title}
           loading="lazy"
           onError={() => setBroken(true)} // image failed -> show placeholder
-          className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+          className={`h-full w-full object-cover ${
             product.in_stock ? "" : "opacity-60"
           }`}
         />

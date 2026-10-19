@@ -12,6 +12,18 @@ export const loginLimiter = rateLimit({
   message: tooMany,
 });
 
+// Login, per ACCOUNT: many IPs trying one email also get stopped. Only failed tries count.
+// The email is read here before Zod runs, so it is cleaned the same way (trim, lower case).
+export const loginAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => `login:${String(req.body?.email ?? "").trim().toLowerCase()}`,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: tooMany,
+});
+
 // Register: every request counts, because making accounts is the abuse
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour

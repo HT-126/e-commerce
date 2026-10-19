@@ -28,7 +28,7 @@ export default function SearchBox() {
         defaultValue={current}
         maxLength={100} // same limit as the Zod schema on the server
         placeholder="Search products..."
-        className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none"
+        className="w-full rounded-full border border-transparent bg-white px-4 py-1.5 text-sm focus:border-accent focus:outline-none"
       />
     </form>
   );

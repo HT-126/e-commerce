@@ -3,8 +3,8 @@ function optionClass(isSelected) {
   const base =
     "rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:line-through disabled:opacity-40";
   return isSelected
-    ? `${base} border-gray-900 bg-gray-900 text-white`
-    : `${base} border-gray-300 hover:border-gray-900 disabled:hover:border-gray-300`;
+    ? `${base} border-accent bg-accent text-white`
+    : `${base} border-gray-300 hover:border-accent disabled:hover:border-gray-300`;
 }
 
 export default function VariantPicker({ variants, selected, onSelect }) {

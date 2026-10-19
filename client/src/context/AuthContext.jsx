@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import * as api from "../api.js";
-
-const AuthContext = createContext(null);
+import { AuthContext } from "./useAuth.js";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null); // null = not logged in
@@ -21,8 +20,20 @@ export function AuthProvider({ children }) {
     return u;
   }
 
+  // A request got 401: the session is over, even if the page did not notice
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener("auth:expired", onExpired);
+    return () => window.removeEventListener("auth:expired", onExpired);
+  }, []);
+
   async function logout() {
-    await api.logout();
+    try {
+      await api.logout();
+    } catch {
+      // The server could not be reached. The user still wanted out, and the
+      // cookie ends by itself after 1 hour, so clear the screen state anyway.
+    }
     setUser(null);
   }
 
@@ -31,8 +42,4 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  return useContext(AuthContext);
 }

@@ -30,7 +30,7 @@ export default function ImageGallery({ images, title }) {
             onClick={() => setIndex(i)}
             aria-label={`Show image ${i + 1}`}
             className={`size-16 shrink-0 overflow-hidden rounded-md border-2 bg-gray-100 ${
-              i === index ? "border-gray-900" : "border-transparent hover:border-gray-400"
+              i === index ? "border-accent" : "border-transparent hover:border-gray-400"
             }`}
           >
             <img

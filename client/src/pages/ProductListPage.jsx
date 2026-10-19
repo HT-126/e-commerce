@@ -1,34 +1,27 @@
-import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getProducts } from "../api.js";
+import { useFetch } from "../hooks/useFetch.js";
 import ProductCard from "../components/ProductCard.jsx";
+import { ProductGridSkeleton } from "../components/Skeleton.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 
 export default function ProductListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Number first, then || 1: page 0, "abc" (NaN) or missing all become 1
-  const page = Number(searchParams.get("page")) || 1;
+  // Whole numbers from 1 up. "1.5", "-2", "abc" and missing all become 1.
+  const rawPage = Number(searchParams.get("page"));
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
   const sort = searchParams.get("sort") || "rating_desc";
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || ""; // NEW: it was missing
 
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // "ignore" drops answers from old requests (race condition guard)
-    let ignore = false;
-    setLoading(true);
-    setError("");
-    // getProducts removes empty values, so category "" is not sent
-    getProducts({ page, sort, search, category, limit: 12 })
-      .then((d) => !ignore && setData(d))
-      .catch((e) => !ignore && setError(e.message))
-      .finally(() => !ignore && setLoading(false));
-    return () => {
-      ignore = true;
-    };
-  }, [page, sort, search, category]); // NEW: category is here, so a change refetches
+  // keepPrevious: the old cards stay on screen (dimmed) while the next page loads.
+  // getProducts removes empty values, so category "" is not sent.
+  const { data, error, loading } = useFetch(
+    () => getProducts({ page, sort, search, category, limit: 12 }),
+    `${page}|${sort}|${search}|${category}`,
+    { keepPrevious: true },
+  );
 
   // Change some URL params. undefined or "" removes the param.
   function update(changes) {
@@ -55,13 +48,32 @@ export default function ProductListPage() {
         </select>
       </div>
 
-      {error && <p className="text-sm text-red-700">{error}</p>}
-      {!data && loading && <p>Loading...</p>}
+      {error && <p className="text-sm text-red-700">{error.message}</p>}
+      {!data && loading && <ProductGridSkeleton />}
 
       {data && (
         <>
           <p className="mb-3 text-sm text-gray-600">{data.total} products</p>
-          {data.items.length === 0 && <p>No products found.</p>}
+          {data.items.length === 0 && data.total === 0 && (
+            <EmptyState
+              title="No products found"
+              text="Try a different search or category."
+              actionLabel="Show all products"
+            />
+          )}
+          {/* The page number in the URL is past the last page */}
+          {data.items.length === 0 && data.total > 0 && (
+            <p>
+              There is nothing on page {page}.{" "}
+              <button
+                type="button"
+                onClick={() => update({ page: data.totalPages })}
+                className="underline"
+              >
+                Go to the last page
+              </button>
+            </p>
+          )}
           {/* Keep the old cards on screen (dimmed) while the next page loads */}
           <div
             className={`grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 ${

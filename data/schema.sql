@@ -22,7 +22,6 @@ CREATE TABLE categories (
 
 CREATE TABLE products (
   id           INT AUTO_INCREMENT PRIMARY KEY,
-  -- URL-friendly key. Titles repeat (49 duplicates), handles do not.
   handle       VARCHAR(255) NOT NULL UNIQUE,
   title        VARCHAR(255) NOT NULL,
   description  TEXT NOT NULL,
@@ -33,7 +32,7 @@ CREATE TABLE products (
   rating_count INT NOT NULL DEFAULT 0,
   category_id  INT NOT NULL,
   FOREIGN KEY (category_id) REFERENCES categories(id),
-  -- We will filter by category and price, so index them
+  -- filter by category and price, so index them
   INDEX idx_products_category (category_id),
   INDEX idx_products_price (price_min)
 );
@@ -41,9 +40,8 @@ CREATE TABLE products (
 CREATE TABLE product_images (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   product_id INT NOT NULL,
-  -- Shopify URLs can be long, so 500 (I have not checked the real max)
+  -- Shopify URLs can be long, so 500 
   url        VARCHAR(500) NOT NULL,
-  -- have not checked if alt is ever empty, so allow NULL
   alt        VARCHAR(255) NULL,
   -- Order in the gallery: 0 = first image
   position   INT NOT NULL DEFAULT 0,
@@ -54,14 +52,14 @@ CREATE TABLE product_images (
 CREATE TABLE product_variants (
   id                 INT AUTO_INCREMENT PRIMARY KEY,
   product_id         INT NOT NULL,
-  -- Each sellable item has its own SKU (the bad bundle product had null SKUs, we skip it)
+  -- Each sellable item has its own SKU (the bad bundle product had null SKUs, skip it)
   sku                VARCHAR(100) NOT NULL UNIQUE,
   -- Allow NULL until verify every variant has both options
   color              VARCHAR(100) NULL,
   size               VARCHAR(50) NULL,
   price              DECIMAL(10,2) NOT NULL,-- NULL = no discount , price in variant bc some different variant has different price 
   compare_at_price   DECIMAL(10,2) NULL,
-  -- Our own number (demo data), not from the dataset
+  -- (demo data), not from the dataset
   stock_quantity     INT NOT NULL DEFAULT 0,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   -- Safety net: stock can never be negative
@@ -70,7 +68,6 @@ CREATE TABLE product_variants (
 
 CREATE TABLE users (
   id            INT AUTO_INCREMENT PRIMARY KEY,
-  -- UNIQUE = no two accounts with the same email
   email         VARCHAR(255) NOT NULL UNIQUE,
   -- A bcrypt hash is about 60 characters. 255 is a safe size.
   password_hash VARCHAR(255) NOT NULL,
@@ -112,7 +109,7 @@ CREATE TABLE order_items (
   unit_price DECIMAL(10,2) NOT NULL,
   -- If an order is deleted, its lines go too
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  -- No CASCADE: you cannot delete a variant that was already sold
+  -- No CASCADE: cannot delete a variant that was already sold
   FOREIGN KEY (variant_id) REFERENCES product_variants(id),
   CHECK (quantity > 0)
 );

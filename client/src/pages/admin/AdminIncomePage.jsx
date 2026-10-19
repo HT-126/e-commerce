@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getAdminStats } from "../../api";
 
 const money = (n) => `$${Number(n).toFixed(2)}`;
 
 function Tile({ label, value }) {
   return (
-    <div className="rounded border p-4">
+    <div className="border p-4">
       <p className="text-sm text-gray-500">{label}</p>
       <p className="text-2xl font-bold">{value}</p>
     </div>
@@ -14,6 +14,7 @@ function Tile({ label, value }) {
 }
 
 export default function AdminIncomePage() {
+  const navigate = useNavigate();
   const [days, setDays] = useState(30);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
@@ -21,12 +22,21 @@ export default function AdminIncomePage() {
   useEffect(() => {
     let ignore = false; // ignore an old answer if days changed again
     getAdminStats(days)
-      .then((s) => !ignore && setStats(s))
-      .catch((e) => !ignore && setError(e.message));
+      .then((s) => {
+        if (ignore) return;
+        setStats(s);
+        setError(""); // a good answer clears an old error
+      })
+      .catch((e) => {
+        if (ignore) return;
+        // The 1-hour token expired: log in again, then come back
+        if (e.status === 401) navigate("/login", { state: { from: "/admin/income" } });
+        else setError(e.message);
+      });
     return () => {
       ignore = true;
     };
-  }, [days]);
+  }, [days, navigate]);
 
   if (error) return <p className="text-red-600">{error}</p>;
   if (!stats) return <p>Loading...</p>;
@@ -54,8 +64,8 @@ export default function AdminIncomePage() {
                 onClick={() => setDays(d)}
                 className={
                   d === days
-                    ? "rounded bg-black px-3 py-1 text-white"
-                    : "rounded border px-3 py-1 hover:bg-gray-100"
+                    ? "bg-black px-3 py-1 text-white"
+                    : "border px-3 py-1 hover:bg-gray-100"
                 }
               >
                 {d}d

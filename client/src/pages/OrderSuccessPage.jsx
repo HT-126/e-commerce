@@ -18,7 +18,7 @@ export default function OrderSuccessPage() {
       </p>
       <Link
         to="/"
-        className="inline-block rounded-md bg-gray-900 px-6 py-2 text-white hover:bg-gray-700"
+        className="inline-block rounded-md bg-accent px-6 py-2 text-white hover:bg-accent-hover"
       >
         Continue shopping
       </Link>

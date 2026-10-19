@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"; // match RequireAuth's import
+import { useAuth } from "../context/useAuth.js";
 
 export default function RequireAdmin() {
   const { user, loading } = useAuth();

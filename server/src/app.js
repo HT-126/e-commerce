@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { pool } from "./config/db.js";
 import productsRouter from "./routes/products.js";
 import authRouter from "./routes/auth.js";
@@ -14,6 +15,16 @@ import { requireAuth, requireAdmin } from "./middleware/auth.js";
 import adminRouter from "./routes/admin.js";
 
 const app = express();
+
+// Behind a reverse proxy, set TRUST_PROXY to the number of proxies (e.g. 1).
+// Off by default: trusting X-Forwarded-For with no proxy lets anyone fake their IP
+// and get around the rate limiters.
+if (process.env.TRUST_PROXY) {
+  const n = Number(process.env.TRUST_PROXY);
+  app.set("trust proxy", Number.isNaN(n) ? process.env.TRUST_PROXY : n);
+}
+
+app.use(helmet()); // security headers
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
@@ -40,7 +51,6 @@ app.get("/api/health", async (req, res) => {
 app.use("/api/products", productsRouter);
 app.use("/api/products", reviewsRouter);
 
-// Before the routes. Without this, req.body is undefined.
 app.use("/api/auth", authRouter);
 
 app.use("/api/cart", cartRouter);

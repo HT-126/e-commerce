@@ -1,17 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getOrders } from "../api.js";
+import { ListSkeleton } from "../components/Skeleton.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 
 export default function OrdersPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [orders, setOrders] = useState(null);
+  const [data, setData] = useState(null); // { items, page, totalPages } from the server
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const orders = data?.items ?? null;
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const next = await getOrders(data.page + 1);
+      setData({ ...next, items: [...data.items, ...next.items] }); // add to the end
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
-    let ignore = false; 
+    let ignore = false;
     getOrders()
-      .then((data) => !ignore && setOrders(data))
+      .then((d) => !ignore && setData(d))
       .catch((e) => {
         if (ignore) return;
         // The 1-hour token expired: log in again, then come back here
@@ -27,12 +43,14 @@ export default function OrdersPage() {
     <main className="mx-auto max-w-3xl p-4">
       <h1 className="mb-4 text-2xl font-bold">My orders</h1>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {!orders && !error && <p>Loading...</p>}
+      {!orders && !error && <ListSkeleton />}
 
       {orders && orders.length === 0 && (
-        <p>
-          You have no orders yet. <Link to="/" className="underline">Start shopping</Link>
-        </p>
+        <EmptyState
+          title="No orders yet"
+          text="When you place an order it will show up here."
+          actionLabel="Start shopping"
+        />
       )}
 
       {orders && orders.length > 0 && (
@@ -56,6 +74,16 @@ export default function OrdersPage() {
             </li>
           ))}
         </ul>
+      )}
+      {data && data.page < data.totalPages && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="mt-4 rounded-md border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+        >
+          {loadingMore ? "Loading..." : "Load more"}
+        </button>
       )}
     </main>
   );

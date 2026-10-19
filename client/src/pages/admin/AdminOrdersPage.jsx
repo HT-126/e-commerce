@@ -48,7 +48,7 @@ export default function AdminOrdersPage() {
         <button
           disabled={page <= 1}
           onClick={() => setPage(page - 1)}
-          className="rounded border px-3 py-1 disabled:opacity-40"
+          className="border px-3 py-1 disabled:opacity-40"
         >
           Prev
         </button>
@@ -58,7 +58,7 @@ export default function AdminOrdersPage() {
         <button
           disabled={page >= data.totalPages}
           onClick={() => setPage(page + 1)}
-          className="rounded border px-3 py-1 disabled:opacity-40"
+          className="border px-3 py-1 disabled:opacity-40"
         >
           Next
         </button>

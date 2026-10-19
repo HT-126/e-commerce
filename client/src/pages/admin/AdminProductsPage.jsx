@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { getAdminVariants, updateVariant } from "../../api";
+import { useNavigate } from "react-router-dom";
+import { deleteAdminProduct, getAdminVariants, updateVariant } from "../../api";
+import AdminProductForm from "./AdminProductForm";
 
 // One grid for the header and every row, so the columns line up
-const ROW = "grid grid-cols-[1fr_110px_100px_100px_90px_170px] items-center gap-3 px-5 py-3 border-b border-gray-100";
-const BTN = "min-h-11 rounded-lg border border-gray-300 bg-white px-4 hover:bg-gray-100 disabled:opacity-40";
-const INPUT = "min-h-11 w-full rounded-lg border border-gray-300 px-2 text-right";
+const ROW = "grid grid-cols-[1fr_110px_100px_100px_90px_260px] items-center gap-3 px-5 py-3 border-b border-gray-100";
+const BTN = "min-h-11 border border-gray-300 bg-white px-4 hover:bg-gray-100 disabled:opacity-40";
+const INPUT = "min-h-11 w-full border border-gray-300 px-2 text-right";
 
 const money = (n) => `$${n.toFixed(2)}`;
 
@@ -16,6 +18,7 @@ function stockClass(n) {
 }
 
 export default function AdminProductsPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [text, setText] = useState(""); // what the admin is typing
   const [query, setQuery] = useState(""); // the search that is applied
@@ -27,16 +30,27 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState({ price: "", compare: "", stock: "" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [adding, setAdding] = useState(false); // the "Add product" form is open
+  const [notice, setNotice] = useState(""); // "Product created" / "Deleted ..."
 
   useEffect(() => {
     let ignore = false; // ignore an old answer if page or query changed again
     getAdminVariants(page, query)
-      .then((d) => !ignore && setData(d))
-      .catch((e) => !ignore && setError(e.message));
+      .then((d) => {
+        if (ignore) return;
+        setData(d);
+        setError(""); // a good answer clears an old error
+      })
+      .catch((e) => {
+        if (ignore) return;
+        // The 1-hour token expired: log in again, then come back
+        if (e.status === 401) navigate("/login", { state: { from: "/admin/products" } });
+        else setError(e.message);
+      });
     return () => {
       ignore = true;
     };
-  }, [page, query, reloadKey]);
+  }, [page, query, reloadKey, navigate]);
 
   function handleSearch(e) {
     e.preventDefault(); // do not reload the whole page
@@ -75,6 +89,23 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function handleDelete(v) {
+    const ok = window.confirm(
+      `Delete the whole product "${v.title}" with all its variants? This cannot be undone.`,
+    );
+    if (!ok) return;
+    setSaveError("");
+    setNotice("");
+    try {
+      await deleteAdminProduct(v.productId);
+      setNotice(`Deleted "${v.title}".`);
+      setEditingId(null);
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      setSaveError(e.message); // for example "This product has been ordered..."
+    }
+  }
+
   if (error) return <p className="text-red-600">{error}</p>;
   if (!data) return <p>Loading...</p>;
 
@@ -82,6 +113,16 @@ export default function AdminProductsPage() {
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Variants, price and stock</h2>
+        <button
+          type="button"
+          onClick={() => {
+            setAdding((a) => !a);
+            setNotice("");
+          }}
+          className="min-h-11 bg-black px-4 text-white hover:bg-gray-800"
+        >
+          {adding ? "Close" : "+ Add product"}
+        </button>
         <form onSubmit={handleSearch} className="flex gap-2">
           <input
             type="search"
@@ -89,21 +130,39 @@ export default function AdminProductsPage() {
             placeholder="Search title or SKU"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="min-h-11 w-70 max-w-full rounded-lg border border-gray-300 px-3"
+            className="min-h-11 w-70 max-w-full border border-gray-300 px-3"
           />
-          <button className="min-h-11 rounded-lg bg-black px-4 text-white hover:bg-gray-800">
+          <button className="min-h-11 bg-black px-4 text-white hover:bg-gray-800">
             Search
           </button>
         </form>
       </div>
 
+      {adding && (
+        <AdminProductForm
+          onCancel={() => setAdding(false)}
+          onCreated={() => {
+            setAdding(false);
+            setNotice("Product created.");
+            setPage(1);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+
+      {notice && (
+        <p role="status" className="mb-3 bg-green-50 p-3 text-sm text-green-800">
+          {notice}
+        </p>
+      )}
+
       {saveError && (
-        <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="mb-3 bg-red-50 p-3 text-sm text-red-700">
           {saveError}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+      <div className="overflow-x-auto border border-gray-200 bg-white">
         <div className="min-w-215 text-sm">
           <div className={`${ROW} border-gray-200 py-3.5 font-semibold text-gray-500`}>
             <div>Product</div>
@@ -153,7 +212,7 @@ export default function AdminProductsPage() {
                   <button
                     disabled={saving}
                     onClick={() => handleSave(v.id)}
-                    className="min-h-11 rounded-lg bg-black px-3 text-white hover:bg-gray-800 disabled:opacity-40"
+                    className="min-h-11 bg-black px-3 text-white hover:bg-gray-800 disabled:opacity-40"
                   >
                     {saving ? "Saving..." : "Save"}
                   </button>
@@ -175,13 +234,19 @@ export default function AdminProductsPage() {
                   {v.compareAtPrice === null ? "—" : money(v.compareAtPrice)}
                 </div>
                 <div className="text-right">
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs tabular-nums ${stockClass(v.stockQuantity)}`}>
+                  <span className={`inline-block px-2.5 py-0.5 text-xs tabular-nums ${stockClass(v.stockQuantity)}`}>
                     {v.stockQuantity}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="flex justify-end gap-2">
                   <button onClick={() => startEdit(v)} className={BTN}>
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(v)}
+                    className="min-h-11 border border-red-300 bg-white px-4 text-red-800 hover:bg-red-50"
+                  >
+                    Delete product
                   </button>
                 </div>
               </div>

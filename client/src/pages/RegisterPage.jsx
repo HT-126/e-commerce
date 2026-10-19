@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../api.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth.js";
+import PasswordInput from "../components/PasswordInput.jsx";
 
 export default function RegisterPage() {
   const { login } = useAuth();
@@ -50,20 +51,18 @@ return (
           name="email"
           type="email"
           autoComplete="email"
-          className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal focus:border-gray-900 focus:outline-none"
+          className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal focus:border-accent focus:outline-none"
         />
         {fieldErrors.email && (
           <span className="text-sm font-normal text-red-700">{fieldErrors.email}</span>
         )}
       </label>
       <label className="grid gap-1 text-sm font-medium">
-        Password (8 to 72 characters)
-        <input
+        Password (6 to 72 characters)
+        <PasswordInput
           name="password"
-          type="password"
           maxLength={72}
           autoComplete="new-password"
-          className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal focus:border-gray-900 focus:outline-none"
         />
         {fieldErrors.password && (
           <span className="text-sm font-normal text-red-700">{fieldErrors.password}</span>
@@ -72,7 +71,7 @@ return (
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <button
         disabled={submitting}
-        className="rounded-md bg-gray-900 py-2 text-white hover:bg-gray-700 disabled:bg-gray-400"
+        className="rounded-md bg-accent py-2 text-white hover:bg-accent-hover disabled:bg-gray-400"
       >
         {submitting ? "Creating..." : "Create account"}
       </button>

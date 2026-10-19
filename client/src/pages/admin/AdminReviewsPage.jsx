@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getAdminReviews, deleteAdminReview } from "../../api";
 
 const ROW =
   "grid grid-cols-[200px_190px_100px_1fr_130px_170px] items-center gap-3 px-5 py-3.5 border-b border-gray-100";
 const BTN =
-  "min-h-11 rounded-lg border border-gray-300 bg-white px-4 hover:bg-gray-100 disabled:opacity-40";
+  "min-h-11 border border-gray-300 bg-white px-4 hover:bg-gray-100 disabled:opacity-40";
 
 // rating 4 -> ★★★★☆
 const stars = (n) => "★".repeat(n) + "☆".repeat(5 - n);
 
 export default function AdminReviewsPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0); // change it to reload the list
   const [data, setData] = useState(null);
@@ -23,12 +24,21 @@ export default function AdminReviewsPage() {
   useEffect(() => {
     let ignore = false; // ignore an old answer if page changed again
     getAdminReviews(page)
-      .then((d) => !ignore && setData(d))
-      .catch((e) => !ignore && setError(e.message));
+      .then((d) => {
+        if (ignore) return;
+        setData(d);
+        setError(""); // a good answer clears an old error
+      })
+      .catch((e) => {
+        if (ignore) return;
+        // The 1-hour token expired: log in again, then come back
+        if (e.status === 401) navigate("/login", { state: { from: "/admin/reviews" } });
+        else setError(e.message);
+      });
     return () => {
       ignore = true;
     };
-  }, [page, reloadKey]);
+  }, [page, reloadKey, navigate]);
 
   async function handleDelete(id) {
     setDeleting(true);
@@ -61,13 +71,13 @@ export default function AdminReviewsPage() {
       {deleteError && (
         <p
           role="alert"
-          className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+          className="mb-3 bg-red-50 p-3 text-sm text-red-700"
         >
           {deleteError}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+      <div className="overflow-x-auto border border-gray-200 bg-white">
         <div className="min-w-[860px] text-sm">
           <div className={`${ROW} border-gray-200 font-semibold text-gray-500`}>
             <div>Product</div>
@@ -119,7 +129,7 @@ export default function AdminReviewsPage() {
                       <button
                         disabled={deleting}
                         onClick={() => handleDelete(r.id)}
-                        className="min-h-11 rounded-lg bg-red-700 px-3.5 text-white hover:bg-red-800 disabled:opacity-40"
+                        className="min-h-11 bg-red-700 px-3.5 text-white hover:bg-red-800 disabled:opacity-40"
                       >
                         {deleting ? "Deleting..." : "Delete"}
                       </button>
@@ -137,7 +147,7 @@ export default function AdminReviewsPage() {
                         setDeleteError("");
                         setConfirmId(r.id);
                       }}
-                      className="min-h-11 rounded-lg border border-red-300 bg-white px-4 text-red-800 hover:bg-red-50"
+                      className="min-h-11 border border-red-300 bg-white px-4 text-red-800 hover:bg-red-50"
                     >
                       Delete
                     </button>

@@ -3,11 +3,26 @@ const BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
     ...options,
+    // Only requests with a body need a JSON content type. Without a body it would
+    // force a CORS preflight request for nothing.
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers,
+    },
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    // The 1-hour token expired while the user was on a page: tell AuthContext,
+    // so the header and the guarded routes stop treating the user as logged in.
+    // (/me and /login answer 401 in normal use, so they are left out.)
+    if (
+      res.status === 401 &&
+      !path.startsWith("/api/auth/me") &&
+      !path.startsWith("/api/auth/login")
+    ) {
+      window.dispatchEvent(new Event("auth:expired"));
+    }
     const err = new Error(data?.error || `Request failed (${res.status})`);
     err.status = res.status; // 401, 429, ...
     err.details = data?.detail; // [{ field, message }] from Zod, used by forms
@@ -64,7 +79,7 @@ export const removeCartItem = (variantId) =>
 
 export const checkout = () => request("/api/checkout", { method: "POST" });
 
-export const getOrders = () => request("/api/orders");
+export const getOrders = (page = 1) => request(`/api/orders?page=${page}`);
 export const getOrder = (id) =>
   request(`/api/orders/${encodeURIComponent(id)}`);
 
@@ -99,3 +114,9 @@ export const getAdminReviews = (page = 1) =>
 export const deleteAdminReview = (id) =>
   request(`/api/admin/reviews/${id}`, { method: "DELETE" });
 // The server answers 200 with { rating, ratingCount }, so your helper needs no special case.
+
+export const createAdminProduct = (body) =>
+  request("/api/admin/products", { method: "POST", body: JSON.stringify(body) });
+
+export const deleteAdminProduct = (id) =>
+  request(`/api/admin/products/${id}`, { method: "DELETE" });

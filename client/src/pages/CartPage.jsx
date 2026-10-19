@@ -1,40 +1,55 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ListSkeleton } from "../components/Skeleton.jsx";
+import EmptyState from "../components/EmptyState.jsx";
+import { useCart } from "../context/useCart.js";
+import { useToast } from "../context/useToast.js";
 import { Link, useNavigate } from "react-router-dom";
 import { PLACEHOLDER } from "../placeholder.js";
 import { getCart, updateCartItem, removeCartItem, checkout } from "../api.js";
 
 export default function CartPage() {
   const navigate = useNavigate();
+  const { setCartCount, refreshCart } = useCart();
+  const toast = useToast();
   const [cart, setCart] = useState(null); // { items, total } from the server
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null); // the variantId we are changing now
   const [checkingOut, setCheckingOut] = useState(false);
 
+  const handleError = useCallback(
+    (e) => {
+      if (e.status === 401) {
+        // The 1-hour token expired: log in again, then come back here
+        navigate("/login", { state: { from: "/cart" } });
+        return;
+      }
+      setError(e.message);
+    },
+    [navigate],
+  );
+
   // First load (with the "ignore" guard, same as other pages)
   useEffect(() => {
     let ignore = false;
     getCart()
-      .then((data) => !ignore && setCart(data))
+      .then((data) => {
+        if (ignore) return;
+        setCart(data);
+        setCartCount(data); // keep the number on the cart icon right
+      })
       .catch((e) => !ignore && handleError(e))
       .finally(() => !ignore && setLoading(false));
     return () => {
       ignore = true;
     };
-  }, []);
-
-  function handleError(e) {
-    if (e.status === 401) {
-      // The 1-hour token expired: log in again, then come back here
-      navigate("/login", { state: { from: "/cart" } });
-      return;
-    }
-    setError(e.message);
-  }
+  }, [handleError, setCartCount]);
 
   // Ask the server for the real cart again
   async function refresh() {
-    setCart(await getCart());
+    const data = await getCart();
+    setCart(data);
+    setCartCount(data);
   }
 
   // Run one change (PATCH or DELETE), then reload the cart
@@ -57,13 +72,18 @@ export default function CartPage() {
 
   const changeQty = (item, quantity) =>
     run(item, () => updateCartItem(item.variantId, quantity));
-  const remove = (item) => run(item, () => removeCartItem(item.variantId));
+  const remove = (item) =>
+    run(item, async () => {
+      await removeCartItem(item.variantId);
+      toast("Removed from cart");
+    });
 
   async function handleCheckout() {
     setCheckingOut(true);
     setError("");
     try {
       const order = await checkout(); // { orderId, total } from the server
+      refreshCart(); // the icon badge: bought lines are gone
       navigate("/order-success", {
         state: { orderId: order.orderId, total: order.total },
       });
@@ -82,7 +102,8 @@ export default function CartPage() {
   if (loading)
     return (
       <main className="mx-auto max-w-4xl p-4">
-        <p>Loading...</p>
+        <h1 className="mb-4 text-2xl font-bold">Your cart</h1>
+        <ListSkeleton />
       </main>
     );
 
@@ -100,12 +121,7 @@ export default function CartPage() {
       )}
 
       {items.length === 0 ? (
-        <p>
-          Your cart is empty.{" "}
-          <Link to="/" className="underline">
-            Continue shopping
-          </Link>
-        </p>
+        <EmptyState title="Your cart is empty" text="Add something you like and it will show up here." />
       ) : (
         <>
           <ul className="divide-y divide-gray-200 border-y border-gray-200">
@@ -197,11 +213,6 @@ export default function CartPage() {
               <span>${cart.total.toFixed(2)}</span>
             </p>
             {hasSoldOut && (
-              <p className="text-xs text-gray-500">
-                Sold-out items are not in the total.
-              </p>
-            )}
-            {hasSoldOut && (
               <p className="text-xs text-red-700">
                 Remove the sold-out items to continue. They are not in the
                 total.
@@ -211,7 +222,7 @@ export default function CartPage() {
               type="button"
               onClick={handleCheckout}
               disabled={!hasAvailable || hasSoldOut || checkingOut}
-              className="w-full rounded-md bg-gray-900 py-3 font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="w-full rounded-md bg-accent py-3 font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-gray-300"
             >
               {checkingOut ? "Placing order..." : "Checkout"}
             </button>

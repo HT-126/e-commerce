@@ -1,35 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getOrder } from "../api.js";
+import { useFetch } from "../hooks/useFetch.js";
 import { PLACEHOLDER } from "../placeholder.js";
 
 export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [order, setOrder] = useState(null);
-  const [error, setError] = useState("");
+  const { data: order, error } = useFetch(() => getOrder(id), id);
+  const expired = error?.status === 401;
 
+  // The 1-hour token ended: log in again, then come back here
   useEffect(() => {
-    let ignore = false;
-    setOrder(null);
-    setError("");
-    getOrder(id)
-      .then((data) => !ignore && setOrder(data))
-      .catch((e) => {
-        if (ignore) return;
-        if (e.status === 401) navigate("/login", { state: { from: location.pathname } });
-        else setError(e.message); // 404 -> "Order not found"
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [id, navigate, location.pathname]);
+    if (expired) navigate("/login", { state: { from: location.pathname } });
+  }, [expired, navigate, location.pathname]);
 
+  if (expired) return null;
   if (error) {
     return (
       <main className="mx-auto max-w-3xl p-4">
-        <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>
+        <p role="alert" className="mb-2 text-sm text-red-700">{error.message}</p>
         <Link to="/orders" className="text-sm underline">Back to my orders</Link>
       </main>
     );

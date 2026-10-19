@@ -48,3 +48,31 @@ export const adminReviewsSchema = z.object({
 export const deleteReviewSchema = z.object({
   params: z.object({ id: z.coerce.number().int().positive() }),
 });
+
+const variantInput = z
+  .object({
+    sku: z.string().trim().min(1).max(100),
+    color: z.string().trim().max(100).optional().nullable(),
+    size: z.string().trim().max(50).optional().nullable(),
+    price: money,
+    compareAtPrice: money.nullable().optional(),
+    stockQuantity: z.number().int().min(0).max(100000),
+  })
+  .refine((v) => v.compareAtPrice == null || v.compareAtPrice > v.price, {
+    message: "compareAtPrice must be higher than price (or empty for no discount)",
+    path: ["compareAtPrice"],
+  });
+
+export const createProductSchema = z.object({
+  body: z.object({
+    title: z.string().trim().min(1).max(255),
+    description: z.string().trim().max(5000).default(""),
+    categoryId: z.number().int().positive(),
+    imageUrl: z.string().trim().url().max(500).optional(),
+    variants: z.array(variantInput).min(1).max(50),
+  }),
+});
+
+export const deleteProductSchema = z.object({
+  params: z.object({ id: z.coerce.number().int().positive() }),
+});
