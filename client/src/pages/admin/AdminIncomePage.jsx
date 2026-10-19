@@ -4,6 +4,16 @@ import { getAdminStats } from "../../api";
 
 const money = (n) => `$${Number(n).toFixed(2)}`;
 
+// The server accepts 1 to 365 days, or "all" for the whole history
+const PERIODS = [
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+  { value: 180, label: "6 months" },
+  { value: 365, label: "1 year" },
+  { value: "all", label: "All time" },
+];
+
 function Tile({ label, value }) {
   return (
     <div className="border p-4">
@@ -55,20 +65,22 @@ export default function AdminIncomePage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
-            Last {days} days: {money(stats.period.revenue)} · {stats.period.orders} orders
+            {days === "all" ? "All time" : `Last ${days} days`}: {money(stats.period.revenue)} ·{" "}
+            {stats.period.orders} orders
           </h2>
-          <div className="flex gap-2">
-            {[7, 30, 90].map((d) => (
+          <div className="flex flex-wrap gap-2">
+            {PERIODS.map((p) => (
               <button
-                key={d}
-                onClick={() => setDays(d)}
+                key={p.value}
+                onClick={() => setDays(p.value)}
+                aria-pressed={p.value === days}
                 className={
-                  d === days
+                  p.value === days
                     ? "bg-black px-3 py-1 text-white"
                     : "border px-3 py-1 hover:bg-gray-100"
                 }
               >
-                {d}d
+                {p.label}
               </button>
             ))}
           </div>
@@ -77,24 +89,27 @@ export default function AdminIncomePage() {
         {stats.daily.length === 0 ? (
           <p className="text-gray-500">No orders in this period.</p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="border-b text-gray-500">
-              <tr>
-                <th className="py-2">Day</th>
-                <th>Orders</th>
-                <th>Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.daily.map((d) => (
-                <tr key={d.day} className="border-b">
-                  <td className="py-2">{d.day}</td>
-                  <td>{d.orders}</td>
-                  <td>{money(d.revenue)}</td>
+          // Newest day first. A long period (6 months, all time) scrolls inside the box.
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 border-b bg-white text-gray-500">
+                <tr>
+                  <th className="py-2">Day</th>
+                  <th>Orders</th>
+                  <th>Revenue</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {stats.daily.map((d) => (
+                  <tr key={d.day} className="border-b">
+                    <td className="py-2">{d.day}</td>
+                    <td>{d.orders}</td>
+                    <td>{money(d.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

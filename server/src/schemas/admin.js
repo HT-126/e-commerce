@@ -8,7 +8,10 @@ export const adminOrdersSchema = z.object({
 });
 export const adminStatsSchema = z.object({
   query: z.object({
-    days: z.coerce.number().int().min(1).max(365).default(30),
+    // 1 to 365 days, or "all" for the whole history
+    days: z
+      .union([z.literal("all"), z.coerce.number().int().min(1).max(365)])
+      .default(30),
   }),
 });
 

@@ -7,8 +7,13 @@ import { slugify } from "../utils/slug.js";
 const rowsOf = async (sql, params) => (await db.query(sql, params))[0];
 const totalPages = (total, limit) => Math.max(1, Math.ceil(total / limit));
 
-// Income and sales numbers
+// Income and sales numbers. `days` is a number, or "all" for the whole history.
 export async function getStats(days) {
+  // Fixed SQL text chosen by the code; the number only goes into a "?" value
+  const since =
+    days === "all" ? "" : "WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)";
+  const sinceParams = days === "all" ? [] : [days];
+
   // Five independent read-only queries: run them at the same time
   const [all, items, period, daily, top] = await Promise.all([
     rowsOf(
@@ -17,19 +22,18 @@ export async function getStats(days) {
     rowsOf("SELECT COALESCE(SUM(quantity), 0) AS items FROM order_items"),
     rowsOf(
       `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
-       FROM orders
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`,
-      [days],
+       FROM orders ${since}`,
+      sinceParams,
     ),
     // DATE_FORMAT gives a plain "2026-10-17" text (a DATE would become a JS Date and shift by time zone)
+    // Newest day first
     rowsOf(
       `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day,
               COUNT(*) AS orders, SUM(total) AS revenue
-       FROM orders
-       WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+       FROM orders ${since}
        GROUP BY day
-       ORDER BY day`,
-      [days],
+       ORDER BY day DESC`,
+      sinceParams,
     ),
     // Best sellers by money, using unit_price (what customers really paid)
     rowsOf(
