@@ -7,3 +7,4 @@ dist/
 server/src/note.txt
 data/import_skipped.json
 server/node
+issues.md

@@ -87,7 +87,6 @@ e-commerce/
 ├── data/
 │   ├── products.json          # source catalog (imported into MySQL)
 │   └── schema.sql             # database schema
-├── issues.md                  # code review log: what was found, fixed, and left open
 └── docker-compose.yml         # MySQL 8 + API + client
 ```
 
@@ -285,7 +284,7 @@ cd client && npm run lint && npm run build
 - **21 integration tests** run against a throw-away database `ecommerce_test` (created from `data/schema.sql`, dropped at the end). `DB_NAME` is set before the app is imported, so the real `ecommerce` database is never touched.
 - They cover registration and login (cookie flags), 401 / 403, hidden stock numbers, the search escape, cart limits, checkout (rollback, sold-out lines, empty cart), order ownership, verified-purchase reviews, rating recalculation, and admin price / stock / product add and delete.
 - The register route allows 5 calls per hour per IP and the tests use 3, so do not add many register calls to the suite.
-- There are no browser / UI tests. [issues.md](issues.md) lists what was reviewed and what is still open.
+- There are no browser / UI tests.
 
 ---
 
