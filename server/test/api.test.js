@@ -396,3 +396,48 @@ test("admin: delete a product removes it from carts; an ordered product cannot b
   assert.equal(ordered.status, 409);
   assert.equal((await api("GET", "/api/products/test-product")).status, 200);
 });
+
+test("admin: stats list the newest day first and accept days=all", async () => {
+  // two orders on different days (set directly in the database)
+  await admin.query("UPDATE orders SET created_at = NOW() - INTERVAL 3 DAY ORDER BY id LIMIT 1");
+
+  const week = await api("GET", "/api/admin/stats?days=7", { cookie: adminCookie });
+  assert.equal(week.status, 200);
+  const days = week.data.daily.map((d) => d.day);
+  assert.ok(days.length >= 2);
+  assert.deepEqual(days, [...days].sort().reverse()); // newest first
+
+  await admin.query("UPDATE orders SET created_at = NOW() - INTERVAL 200 DAY ORDER BY id LIMIT 1");
+  const d30 = await api("GET", "/api/admin/stats?days=30", { cookie: adminCookie });
+  const all = await api("GET", "/api/admin/stats?days=all", { cookie: adminCookie });
+  assert.equal(all.status, 200);
+  assert.equal(all.data.days, "all");
+  assert.equal(all.data.period.orders, all.data.allTime.orders); // nothing is cut off
+  assert.ok(all.data.period.orders > d30.data.period.orders); // the 200-day-old order is included
+
+  assert.equal((await api("GET", "/api/admin/stats?days=abc", { cookie: adminCookie })).status, 400);
+  assert.equal((await api("GET", "/api/admin/stats?days=999", { cookie: adminCookie })).status, 400);
+});
+
+test("products: every sort option works and unknown ones are 400", async () => {
+  // a second product, so the order can be seen
+  await admin.query(
+    `INSERT INTO products (id, handle, title, description, price_min, rating, rating_count, category_id)
+     VALUES (90, 'a-first', 'A first', 'd', 5.00, 4.50, 9, 1)`,
+  );
+  const handles = async (sort) =>
+    (await api("GET", `/api/products?sort=${sort}`)).data.items
+      .map((p) => p.handle)
+      .filter((h) => ["a-first", "test-product"].includes(h)); // ignore products added by earlier tests
+
+  assert.deepEqual(await handles("name_asc"), ["a-first", "test-product"]);
+  assert.deepEqual(await handles("name_desc"), ["test-product", "a-first"]);
+  assert.deepEqual(await handles("newest"), ["a-first", "test-product"]); // highest id first
+  assert.deepEqual(await handles("price_asc"), ["a-first", "test-product"]);
+  assert.deepEqual(await handles("price_desc"), ["test-product", "a-first"]);
+  assert.equal((await handles("reviews_desc"))[0], "a-first"); // 9 ratings against 0
+  assert.equal((await handles("rating_desc"))[0], "a-first");
+
+  assert.equal((await api("GET", "/api/products?sort=name")).status, 400);
+  await admin.query("DELETE FROM products WHERE id = 90");
+});

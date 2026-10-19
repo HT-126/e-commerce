@@ -5,13 +5,26 @@ import ProductCard from "../components/ProductCard.jsx";
 import { ProductGridSkeleton } from "../components/Skeleton.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 
+// The values are the keys the server accepts (server/src/utils/productSorts.js)
+const SORT_OPTIONS = [
+  { value: "rating_desc", label: "Best rated" },
+  { value: "reviews_desc", label: "Most reviewed" },
+  { value: "newest", label: "Newest" },
+  { value: "price_asc", label: "Price: low to high" },
+  { value: "price_desc", label: "Price: high to low" },
+  { value: "name_asc", label: "Name: A to Z" },
+  { value: "name_desc", label: "Name: Z to A" },
+];
+
 export default function ProductListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Number first, then || 1: page 0, "abc" (NaN) or missing all become 1
   // Whole numbers from 1 up. "1.5", "-2", "abc" and missing all become 1.
   const rawPage = Number(searchParams.get("page"));
   const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
-  const sort = searchParams.get("sort") || "rating_desc";
+  // An unknown value in the URL falls back to the default (the server would answer 400)
+  const rawSort = searchParams.get("sort");
+  const sort = SORT_OPTIONS.some((o) => o.value === rawSort) ? rawSort : "rating_desc";
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || ""; // NEW: it was missing
 
@@ -42,9 +55,11 @@ export default function ProductListPage() {
           onChange={(e) => update({ sort: e.target.value, page: undefined })}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
         >
-          <option value="rating_desc">Best rated</option>
-          <option value="price_asc">Price: low to high</option>
-          <option value="price_desc">Price: high to low</option>
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
       </div>
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SORT_KEYS } from "../utils/productSorts.js";
 
 export const listProductsSchema = z.object({
   query: z.object({
@@ -12,8 +13,6 @@ export const listProductsSchema = z.object({
     minPrice: z.coerce.number().min(0).optional(),
     maxPrice: z.coerce.number().min(0).optional(),
     minRating: z.coerce.number().min(0).max(5).optional(),
-    sort: z
-      .enum(["price_asc", "price_desc", "rating_desc"])
-      .default("rating_desc"),
+    sort: z.enum(SORT_KEYS).default("rating_desc"),
   }),
 });

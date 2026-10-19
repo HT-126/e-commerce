@@ -1,14 +1,8 @@
 import { pool as db } from "../config/db.js";
 import { escapeLike } from "../utils/sql.js";
 import { HttpError } from "../utils/httpError.js";
+import { SORTS } from "../utils/productSorts.js";
 
-// Fixed SQL text for each allowed sort.
-// "p.id" at the end makes the order stable, so pages do not repeat rows.
-const SORTS = {
-  price_asc: "p.price_min ASC, p.id ASC",
-  price_desc: "p.price_min DESC, p.id ASC",
-  rating_desc: "p.rating DESC, p.rating_count DESC, p.id ASC",
-};
 
 // The category and all categories below it
 const getCategoryIds = async (categoryId) => {
